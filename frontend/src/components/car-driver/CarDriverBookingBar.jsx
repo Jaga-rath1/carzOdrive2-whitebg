@@ -7,6 +7,8 @@ import { WhatsAppButton } from '../common/WhatsAppButton';
 import { useAuth } from '../../hooks/useAuth';
 import { AuthRequiredNotice } from '../common/AuthRequiredNotice';
 import { getTodayDateString } from '../../utils/formatters';
+import { BHUBANESWAR_LOCATIONS } from '../../config/bookingConfig';
+import { SearchableLocationInput } from '../common/SearchableLocationInput';
 
 export const CarDriverBookingBar = ({ selectedCar, onQuickBook }) => {
   const { isAuthenticated, openAuthModal } = useAuth();
@@ -123,38 +125,30 @@ export const CarDriverBookingBar = ({ selectedCar, onQuickBook }) => {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                    Pickup Location *
-                  </label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-blue-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={pickup}
-                      onChange={(e) => setPickup(e.target.value)}
-                      placeholder="e.g. SUM Hospital / Airport Terminal"
-                      className="w-full bg-slate-50/90 hover:bg-white focus:bg-white border border-slate-200/90 focus:border-blue-600 rounded-xl pl-10 pr-4 py-3 text-xs sm:text-sm text-slate-900 font-semibold focus:outline-none transition-all shadow-xs"
-                    />
-                  </div>
+                <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15 transition-all shadow-xs">
+                  <SearchableLocationInput
+                    id="driver-booking-pickup"
+                    label="Pickup Location / Address *"
+                    value={pickup}
+                    onChange={setPickup}
+                    options={BHUBANESWAR_LOCATIONS}
+                    placeholder="Type doorstep address or pick landmark..."
+                    allowCustom={true}
+                  />
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                    Drop-off Destination *
-                  </label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-blue-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      required
-                      value={destination}
-                      onChange={(e) => setDestination(e.target.value)}
-                      placeholder="e.g. Corporate HQ / Puri Beach Resort"
-                      className="w-full bg-slate-50/90 hover:bg-white focus:bg-white border border-slate-200/90 focus:border-blue-600 rounded-xl pl-10 pr-4 py-3 text-xs sm:text-sm text-slate-900 font-semibold focus:outline-none transition-all shadow-xs"
-                    />
-                  </div>
+                <div className="p-3 rounded-2xl bg-slate-50/90 border border-slate-200/90 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15 transition-all shadow-xs">
+                  <SearchableLocationInput
+                    id="driver-booking-dropoff"
+                    label="Drop-off Destination *"
+                    value={destination}
+                    onChange={setDestination}
+                    options={BHUBANESWAR_LOCATIONS}
+                    placeholder="Type destination, hotel, or pick landmark..."
+                    allowCustom={true}
+                    includeSameAsPickup={true}
+                    pickupLocationValue={pickup}
+                  />
                 </div>
               </div>
 

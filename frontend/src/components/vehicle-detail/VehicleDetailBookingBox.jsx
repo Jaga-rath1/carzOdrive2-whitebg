@@ -16,6 +16,7 @@ import { BHUBANESWAR_LOCATIONS } from '../../config/bookingConfig';
 import { getTodayDateString } from '../../utils/formatters';
 import { useDiscount } from '../../hooks/useDiscount';
 import { VehicleWhatsAppModal } from './VehicleWhatsAppModal';
+import { SearchableLocationInput } from '../common/SearchableLocationInput';
 
 export const VehicleDetailBookingBox = ({ vehicle, onOpenQuickBook }) => {
   const count = vehicle.quantity !== undefined ? Number(vehicle.quantity) : (vehicle.availableCount ?? vehicle.count ?? (vehicle.isAvailable !== false ? 1 : 0));
@@ -202,24 +203,16 @@ export const VehicleDetailBookingBox = ({ vehicle, onOpenQuickBook }) => {
           </div>
         </div>
 
-        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-blue-600" />
-              Pick-up / Delivery Location
-            </span>
-          </label>
-          <select
+        <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15 transition-all space-y-1">
+          <SearchableLocationInput
+            id="detail-pickup-location"
+            label="Pick-up / Delivery Location"
             value={pickupLocation}
-            onChange={(e) => setPickupLocation(e.target.value)}
-            className="w-full bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
-          >
-            {BHUBANESWAR_LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                📍 {loc}
-              </option>
-            ))}
-          </select>
+            onChange={setPickupLocation}
+            options={BHUBANESWAR_LOCATIONS}
+            placeholder="Type address or pick landmark..."
+            allowCustom={true}
+          />
         </div>
       </div>
 

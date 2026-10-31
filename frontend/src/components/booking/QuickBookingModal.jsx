@@ -137,14 +137,19 @@ export const QuickBookingModal = ({
       setReturnDate(sanitizedReturn >= sanitizedPickup ? sanitizedReturn : sanitizedPickup);
     }
     if (initialData?.location || initialData?.pickupLocation) {
-      const loc = initialData.location || initialData.pickupLocation;
-      if (BHUBANESWAR_LOCATIONS.includes(loc)) setPickupLocation(loc);
+      const loc = (initialData.location || initialData.pickupLocation || '').trim();
+      if (loc) setPickupLocation(loc);
     }
     if (initialData?.dropLocation || initialData?.dropoffLocation) {
-      const dropLoc = initialData.dropLocation || initialData.dropoffLocation;
-      if (dropLoc === 'Same as Pick-up Address' || dropLoc === 'Same as Pickup' || dropLoc === pickupLocation) {
+      const dropLoc = (initialData.dropLocation || initialData.dropoffLocation || '').trim();
+      if (
+        dropLoc === 'Same as Pick-up Address' ||
+        dropLoc === 'Same as Pickup' ||
+        dropLoc === 'Same as Pick-up Location' ||
+        dropLoc === pickupLocation
+      ) {
         setDropoffLocation('Same as Pick-up Address');
-      } else if (BHUBANESWAR_LOCATIONS.includes(dropLoc)) {
+      } else if (dropLoc) {
         setDropoffLocation(dropLoc);
       }
     }

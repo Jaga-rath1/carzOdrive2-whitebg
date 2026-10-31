@@ -40,18 +40,35 @@ async function dispatchBookingNotificationsSafely(booking, fallbackEmail = null)
   try {
     const { dispatchBookingEmails } = require('../utils/mailer');
     let target = booking;
-    if ((!target.customerId?.email || !target.vehicleId) && target._id) {
+    if (target?._id) {
       try {
-        target = (await Booking.findById(target._id)
+        const populated = await Booking.findById(target._id)
           .populate('customerId', 'name email phone')
-          .populate('paymentId')) || target;
+          .populate('vehicleId')
+          .populate('bikeId')
+          .populate('driverId')
+          .populate('packageId')
+          .populate('paymentId');
+        if (populated) target = populated;
       } catch (_) {}
     }
-    dispatchBookingEmails(target, fallbackEmail).catch((e) =>
-      console.error('Background dispatchBookingEmails error:', e?.message)
-    );
+
+    const effectiveFallback =
+      fallbackEmail ||
+      target?.guestEmail ||
+      target?.customerEmail ||
+      target?.email ||
+      target?.customerId?.email ||
+      target?.paymentId?.guestEmail ||
+      null;
+
+    setImmediate(() => {
+      dispatchBookingEmails(target, effectiveFallback).catch((e) =>
+        console.error('[Mailer] Background dispatchBookingEmails error:', e?.message)
+      );
+    });
   } catch (e) {
-    console.error('Nodemailer booking dispatch trigger error:', e?.message);
+    console.error('[Mailer] dispatchBookingNotificationsSafely trigger error:', e?.message);
   }
 }
 
@@ -581,7 +598,12 @@ async function createUniversalBooking(customerId, data) {
     .populate('paymentId');
 
   // Dispatched booking Tax Invoice & Admin Alert via Nodemailer asynchronously
-  const guestMail = payload.guestEmail || payload.email || populated?.customerId?.email;
+  const isReal = (em) => em && typeof em === 'string' && em.includes('@') && !em.includes('@offline.carzodrive.com');
+  const guestMail = (isReal(payload.guestEmail) ? payload.guestEmail : null) ||
+                    (isReal(payload.customerEmail) ? payload.customerEmail : null) ||
+                    (isReal(payload.email) ? payload.email : null) ||
+                    (isReal(populated?.customerId?.email) ? populated.customerId.email : null) ||
+                    null;
   dispatchBookingNotificationsSafely(populated || booking, guestMail);
 
   return populated || booking;
@@ -898,10 +920,9 @@ async function createAdminBooking(adminUser, data) {
   }
 
   // Dispatch background notification without blocking response
-  const targetMail = finalEmail || populated?.customerId?.email;
-  if (targetMail && targetMail.includes('@') && !targetMail.includes('@offline.carzodrive.com')) {
-    dispatchBookingNotificationsSafely(populated || booking, targetMail);
-  }
+  const isReal = (em) => em && typeof em === 'string' && em.includes('@') && !em.includes('@offline.carzodrive.com');
+  const targetMail = (isReal(finalEmail) ? finalEmail : null) || (isReal(populated?.customerId?.email) ? populated.customerId.email : null);
+  dispatchBookingNotificationsSafely(populated || booking, targetMail);
 
   return populated || booking;
 }
@@ -1104,7 +1125,8 @@ async function updateBookingStatus(bookingId, newStatus, userId, userRole, note,
     .populate('packageId')
     .populate('paymentId');
 
-  dispatchBookingNotificationsSafely(updated || booking);
+  const customerEmail = updated?.guestEmail || updated?.customerEmail || updated?.customerId?.email;
+  dispatchBookingNotificationsSafely(updated || booking, customerEmail);
   return updated || booking;
 }
 
@@ -1256,7 +1278,8 @@ async function updateBooking(bookingId, updateData) {
     .populate('paymentId');
 
   if (updateData.status || updateData.paymentStatus) {
-    dispatchBookingNotificationsSafely(updated || booking);
+    const customerEmail = updated?.guestEmail || updated?.customerEmail || updated?.customerId?.email;
+    dispatchBookingNotificationsSafely(updated || booking, customerEmail);
   }
 
   return updated || booking;
@@ -1443,6 +1466,42 @@ async function attachBookingDocument(bookingId, adminUserId, data = {}) {
   return booking;
 }
 
+async function resendBookingEmails(bookingIdOrCode, overrideEmail = null) {
+  let booking = null;
+  if (mongoose.Types.ObjectId.isValid(bookingIdOrCode)) {
+    booking = await Booking.findById(bookingIdOrCode)
+      .populate('customerId', 'name email phone')
+      .populate('vehicleId')
+      .populate('bikeId')
+      .populate('driverId')
+      .populate('packageId')
+      .populate('paymentId');
+  }
+  if (!booking) {
+    booking = await Booking.findOne({
+      $or: [
+        { bookingNumber: bookingIdOrCode },
+        { invoiceNumber: bookingIdOrCode },
+      ],
+    })
+      .populate('customerId', 'name email phone')
+      .populate('vehicleId')
+      .populate('bikeId')
+      .populate('driverId')
+      .populate('packageId')
+      .populate('paymentId');
+  }
+  if (!booking) {
+    const err = new Error('Booking not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const { dispatchBookingEmails } = require('../utils/mailer');
+  const results = await dispatchBookingEmails(booking, overrideEmail);
+  return { success: true, bookingNumber: booking.bookingNumber, results };
+}
+
 module.exports = {
   COMPANY_INVOICE_DETAILS,
   getBookingInvoice,
@@ -1463,5 +1522,7 @@ module.exports = {
   deleteBooking,
   verifyBookingDocuments,
   attachBookingDocument,
+  resendBookingEmails,
+  dispatchBookingNotificationsSafely,
 };
 

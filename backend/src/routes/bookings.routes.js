@@ -82,6 +82,7 @@ router.post(
 router.get('/', authenticate, controller.listBookings);
 router.get('/:id', authenticate, controller.getBooking);
 router.get('/:id/invoice', optionalAuth, controller.getBookingInvoice);
+router.post('/:id/resend-email', optionalAuth, controller.resendBookingEmails);
 
 // Status management (Admin / Staff)
 router.patch(

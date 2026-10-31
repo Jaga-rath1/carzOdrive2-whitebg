@@ -2,8 +2,11 @@ import React, { useEffect } from 'react';
 import { MapPin, Calendar, Clock } from 'lucide-react';
 import { BHUBANESWAR_LOCATIONS } from '../../config/bookingConfig';
 import { getTodayDateString, getCurrentTimeString } from '../../utils/formatters';
+import { SearchableLocationInput } from '../common/SearchableLocationInput';
 
 export const HeroDateTimeSelector = ({
+  activeTab,
+  pickupLocation = '',
   dropLocation,
   setDropLocation,
   pickupDate,
@@ -91,24 +94,40 @@ export const HeroDateTimeSelector = ({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2 sm:gap-3 items-start">
-      {/* Drop-off Location */}
+      {/* Drop-off Location (Supports Manual Typing + Landmark Select for Car With Driver) */}
       <div className="lg:col-span-4 space-y-1 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 hover:bg-white focus-within:bg-white border border-slate-200/90 hover:border-blue-300 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15 transition-all shadow-xs">
-        <label className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-          <span>3. Drop-off Location</span>
-        </label>
-        <select
-          value={dropLocation}
-          onChange={(e) => setDropLocation(e.target.value)}
-          className="w-full bg-transparent text-xs sm:text-sm font-bold text-slate-900 focus:outline-none cursor-pointer py-1 sm:py-0.5 min-h-[38px] sm:min-h-0"
-        >
-          <option value="Same as Pick-up Location" className="bg-white text-slate-900 font-medium">🔄 Same as Pick-up Location</option>
-          {BHUBANESWAR_LOCATIONS.map((loc) => (
-            <option key={loc} value={loc} className="bg-white text-slate-900 font-medium">
-              📍 {loc}
-            </option>
-          ))}
-        </select>
+        {activeTab === 'car-with-driver' || activeTab === 'driver-only' ? (
+          <SearchableLocationInput
+            id="hero-dropoff-location"
+            label="3. Drop-off Destination / Address"
+            value={dropLocation}
+            onChange={setDropLocation}
+            options={BHUBANESWAR_LOCATIONS}
+            placeholder="Type destination, hotel, or choose landmark..."
+            allowCustom={true}
+            includeSameAsPickup={true}
+            pickupLocationValue={pickupLocation}
+          />
+        ) : (
+          <>
+            <label className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>3. Drop-off Location</span>
+            </label>
+            <select
+              value={dropLocation}
+              onChange={(e) => setDropLocation(e.target.value)}
+              className="w-full bg-transparent text-xs sm:text-sm font-bold text-slate-900 focus:outline-none cursor-pointer py-1 sm:py-0.5 min-h-[38px] sm:min-h-0"
+            >
+              <option value="Same as Pick-up Location" className="bg-white text-slate-900 font-medium">🔄 Same as Pick-up Location</option>
+              {BHUBANESWAR_LOCATIONS.map((loc) => (
+                <option key={loc} value={loc} className="bg-white text-slate-900 font-medium">
+                  📍 {loc}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
       </div>
 
       {/* Pick-up Date & Time */}

@@ -166,7 +166,7 @@ export const BookingCustomerForm = ({
 
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              Email Address *
+              Email Address (For Tax Invoice & Voucher PDF) *
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

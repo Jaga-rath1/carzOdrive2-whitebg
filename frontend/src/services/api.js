@@ -205,6 +205,18 @@ export async function apiRequest(endpoint, { method = 'GET', body, headers = {},
         }
 
         if (!response) {
+          try {
+            const remoteUrl = `https://carzodrive-1.onrender.com/api/v1${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+            const remoteRes = await fetch(remoteUrl, options);
+            if (remoteRes.ok) {
+              response = remoteRes;
+            }
+          } catch {
+            // remote attempt failed
+          }
+        }
+
+        if (!response) {
           const isRemote = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
           const errorMsg = isRemote
             ? 'Server se connection establish nahi ho paya. Backend server wake up ho raha ho sakta hai, kripya 10 second baad dobara try karein.'
@@ -212,6 +224,19 @@ export async function apiRequest(endpoint, { method = 'GET', body, headers = {},
           const err = new Error(errorMsg);
           err.isNetworkError = true;
           throw err;
+        }
+      }
+
+      // If local proxy returned 502/503 (e.g. backend offline or starting), try remote fallback
+      if (response && (response.status === 502 || response.status === 503 || response.status === 504) && !url.includes('onrender.com')) {
+        try {
+          const remoteUrl = `https://carzodrive-1.onrender.com/api/v1${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+          const remoteRes = await fetch(remoteUrl, options);
+          if (remoteRes.ok) {
+            response = remoteRes;
+          }
+        } catch {
+          // remote attempt failed
         }
       }
 
@@ -653,6 +678,13 @@ export const bookingsAPI = {
     return apiRequest(`/bookings/${id}/documents`, {
       method: 'POST',
       body: { name, type, url },
+    });
+  },
+
+  async resendEmail(idOrCode, email = null) {
+    return apiRequest(`/bookings/${idOrCode}/resend-email`, {
+      method: 'POST',
+      body: email ? { email } : {},
     });
   },
 };

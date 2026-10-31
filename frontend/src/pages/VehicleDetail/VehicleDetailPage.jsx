@@ -3,7 +3,7 @@ import { useParams, useOutletContext, Link } from 'react-router-dom';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Container } from '../../components/common/Container';
 import { vehiclesAPI, bikesAPI } from '../../services/api';
-import { resolveVehicleImageUrl, DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE } from '../../utils/documentUtils';
+import { resolveVehicleImageUrl, DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE, DEFAULT_FLEET_CARS, DEFAULT_FLEET_BIKES } from '../../utils/documentUtils';
 import { VehicleDetailHero } from '../../components/vehicle-detail/VehicleDetailHero';
 import { VehicleDetailGallery } from '../../components/vehicle-detail/VehicleDetailGallery';
 import { VehicleDetailSpecs } from '../../components/vehicle-detail/VehicleDetailSpecs';
@@ -134,6 +134,70 @@ export const VehicleDetailPage = () => {
       }
 
       if (isMounted) {
+        const fallbackMatch =
+          DEFAULT_FLEET_CARS.find((c) => c.id === id || c.slug === id) ||
+          DEFAULT_FLEET_BIKES.find((b) => b.id === id || b.slug === id);
+
+        if (fallbackMatch) {
+          const isBike = fallbackMatch.vehicleType === 'bike' || fallbackMatch.category === 'commuter' || fallbackMatch.category === 'scooter';
+          const price = fallbackMatch.priceNumeric || fallbackMatch.pricePerDay || (isBike ? 499 : 1499);
+          const fallbackNorm = {
+            id: fallbackMatch.slug || fallbackMatch.id,
+            _id: fallbackMatch.id,
+            vehicleId: fallbackMatch.id,
+            name: fallbackMatch.name,
+            brand: fallbackMatch.brand || 'Premium',
+            model: fallbackMatch.name,
+            category: fallbackMatch.category || (isBike ? 'Bike' : 'Sedan'),
+            vehicleType: isBike ? 'bike' : 'car',
+            color: fallbackMatch.color || 'Standard',
+            year: 2024,
+            image: fallbackMatch.image,
+            images: [fallbackMatch.image],
+            pricePerDay: price,
+            priceDisplay: `₹${price.toLocaleString('en-IN')}`,
+            badge: fallbackMatch.badge || 'Live Fleet',
+            isAvailable: true,
+            quantity: fallbackMatch.quantity || 5,
+            availableCount: fallbackMatch.availableCount || 5,
+            availabilityStatus: 'Available',
+            rating: 4.95,
+            reviewsCount: 64,
+            pricing: {
+              dailyRate: price,
+              dailyRateWithFuel: price + 600,
+              securityDeposit: isBike ? 1000 : 2000,
+              extraKmCharge: isBike ? 4 : 10,
+              extraHourCharge: isBike ? 50 : 150,
+            },
+            specs: {
+              seats: fallbackMatch.seats || (isBike ? '2 Seats' : '5 Seats'),
+              fuelType: fallbackMatch.fuelType || 'PETROL',
+              transmission: fallbackMatch.transmission || 'MANUAL',
+              engine: isBike ? '350 cc' : '1197 cc',
+              mileage: isBike ? '45 km/l' : '20 km/l',
+              power: isBike ? '20.2 HP' : '115 HP',
+              topSpeed: isBike ? '120 km/h' : '175 km/h',
+              brakes: isBike ? 'Dual-Channel ABS' : 'Disc + ABS',
+              bootSpace: isBike ? 'N/A' : '391 Litres',
+              airbags: isBike ? 'N/A' : '6 Airbags (Dual Front + Side)',
+              groundClearance: isBike ? '165 mm' : '190 mm',
+            },
+            features: [
+              'Full Air Conditioning',
+              'Touchscreen Infotainment & Bluetooth',
+              'Keyless Push Button Start',
+              'Reverse Parking Camera & Sensors',
+              'Comprehensive Zero-Dep Insurance Included',
+              '24x7 Roadside Assistance across Odisha',
+            ],
+            rawVehicle: fallbackMatch,
+          };
+          setVehicle(fallbackNorm);
+          setLoading(false);
+          return;
+        }
+
         setVehicle(null);
         setLoading(false);
       }

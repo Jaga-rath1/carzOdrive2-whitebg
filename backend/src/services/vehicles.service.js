@@ -101,8 +101,8 @@ async function listVehicles(query) {
     const { page, limit, skip } = getPagination(query);
 
     const filter = {
-      status: 'APPROVED',
-      isPublished: true,
+      $or: [{ status: 'APPROVED' }, { status: 'approved' }, { status: { $exists: false } }],
+      isPublished: { $ne: false },
     };
 
     if (query.isAvailable !== undefined) {

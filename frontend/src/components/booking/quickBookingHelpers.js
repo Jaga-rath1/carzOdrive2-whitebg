@@ -196,7 +196,7 @@ export const buildCheckoutPayload = ({
     serviceType: selectedService,
     guestName: guestName.trim(),
     guestPhone: guestPhone.trim(),
-    guestEmail: guestEmail.trim() || `${guestPhone.replace(/[^0-9]/g, '')}@offline.carzodrive.com`,
+    guestEmail: guestEmail.trim() || undefined,
     guestNotes: guestNotes.trim(),
     drivingLicenseNumber: drivingLicenseNumber?.trim() || undefined,
     drivingLicenseDoc: drivingLicenseDoc || undefined,

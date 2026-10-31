@@ -1,10 +1,17 @@
+const path = require('path');
+// Guarantee loading .env regardless of whether process is started from root or backend directory
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(process.cwd(), 'backend/.env') });
 require('dotenv').config();
+
+const DEFAULT_MONGODB_URI = 'mongodb+srv://projects_db_user:7VDK36eARhp1jVex@cluster0.cuqh0hd.mongodb.net/carzOdrive?retryWrites=true&w=majority';
+const DEFAULT_PARTNER_MONGODB_URI = 'mongodb+srv://projects_db_user:7VDK36eARhp1jVex@cluster0.cuqh0hd.mongodb.net/carzODrive_Partner?retryWrites=true&w=majority';
 
 const env = {
   port: parseInt(process.env.PORT, 10) || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
-  mongodbUri: process.env.MONGODB_URI || '',
-  partnerMongodbUri: process.env.PARTNER_MONGODB_URI || process.env.MONGODB_URI || '',
+  mongodbUri: process.env.MONGODB_URI || DEFAULT_MONGODB_URI,
+  partnerMongodbUri: process.env.PARTNER_MONGODB_URI || process.env.MONGODB_URI || DEFAULT_PARTNER_MONGODB_URI,
   jwt: {
     secret: process.env.JWT_SECRET || '',
     refreshSecret: process.env.JWT_REFRESH_SECRET || '',
@@ -54,10 +61,13 @@ const env = {
 
 function validateEnv() {
   const required = [
-    'MONGODB_URI',
     'JWT_SECRET',
     'JWT_REFRESH_SECRET',
   ];
+
+  if (!env.mongodbUri) {
+    required.unshift('MONGODB_URI');
+  }
 
   if (env.nodeEnv === 'production') {
     required.push(

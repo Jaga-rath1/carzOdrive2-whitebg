@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Sparkles } from 'lucide-react';
-import { DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE } from '../../utils/documentUtils';
+import { DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE, getOptimizedImageUrl, getVehicleDetailSrcSet } from '../../utils/documentUtils';
 
 export const VehicleDetailGallery = ({ vehicle = {} }) => {
   const fallback = vehicle?.vehicleType === 'bike' ? DEFAULT_BIKE_IMAGE : DEFAULT_CAR_IMAGE;
@@ -23,12 +23,16 @@ export const VehicleDetailGallery = ({ vehicle = {} }) => {
         <AnimatePresence mode="wait">
           <motion.img
             key={activeImage}
-            src={activeImage}
+            src={getOptimizedImageUrl(activeImage, { width: 1600, quality: 'auto:best' })}
+            srcSet={getVehicleDetailSrcSet(activeImage) || undefined}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 900px"
             alt={vehicle.name}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
+            decoding="async"
+            style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
             className="w-full h-full object-cover object-center"
             onError={(e) => {
               e.currentTarget.onerror = null;
@@ -68,9 +72,11 @@ export const VehicleDetailGallery = ({ vehicle = {} }) => {
               }`}
             >
               <img
-                src={img}
+                src={getOptimizedImageUrl(img, { width: 240, height: 160, crop: 'fill', gravity: 'auto', quality: 'auto:good' })}
                 alt={`${vehicle.name} view ${idx + 1}`}
                 className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             </button>
           ))}

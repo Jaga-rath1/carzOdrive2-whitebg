@@ -16,7 +16,8 @@ import {
   CreditCard,
   ShieldCheck,
   FileText,
-  Loader2
+  Loader2,
+  Mail
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import { bookingsAPI } from '../../services/api';
@@ -74,6 +75,8 @@ export const InvoiceModal = ({ isOpen, onClose, booking, bookingIdOrCode }) => {
   const [invoiceData, setInvoiceData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -307,6 +310,24 @@ export const InvoiceModal = ({ isOpen, onClose, booking, bookingIdOrCode }) => {
     });
   };
 
+  const handleResendEmail = async () => {
+    const targetCode = b.bookingNumber || b._id;
+    if (!targetCode) return;
+    setIsSendingEmail(true);
+    setEmailStatus(null);
+    try {
+      const email = b.guestEmail || b.customerId?.email;
+      await bookingsAPI.resendEmail(targetCode, email);
+      setEmailStatus({ type: 'success', message: 'Email sent!' });
+      setTimeout(() => setEmailStatus(null), 4000);
+    } catch (err) {
+      setEmailStatus({ type: 'error', message: err.message || 'Failed to dispatch email' });
+      setTimeout(() => setEmailStatus(null), 5000);
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   return createPortal(
     <div className="invoice-modal-overlay fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in">
       {/* Print-specific CSS styles */}
@@ -401,6 +422,38 @@ export const InvoiceModal = ({ isOpen, onClose, booking, bookingIdOrCode }) => {
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Copied' : 'Share'}</span>
+            </button>
+
+            {/* Email Tax Invoice directly to customer */}
+            <button
+              type="button"
+              disabled={isSendingEmail}
+              onClick={handleResendEmail}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                emailStatus?.type === 'success'
+                  ? 'bg-emerald-600 text-white border-emerald-500'
+                  : emailStatus?.type === 'error'
+                  ? 'bg-rose-600 text-white border-rose-500'
+                  : 'bg-emerald-700/80 hover:bg-emerald-600 text-white border-emerald-600'
+              } disabled:opacity-60`}
+              title="Send/Resend Official Tax Invoice & Voucher to customer email"
+            >
+              {isSendingEmail ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Emailing...</span>
+                </>
+              ) : emailStatus?.type === 'success' ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Email Sent!</span>
+                </>
+              ) : (
+                <>
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Email Invoice</span>
+                </>
+              )}
             </button>
 
             {/* Direct PDF File Download */}

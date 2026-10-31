@@ -4,7 +4,7 @@ import { Container } from '../common/Container';
 import { WhatsAppButton } from '../common/WhatsAppButton';
 import { vehiclesAPI } from '../../services/api';
 import { useDriverSettings } from '../../hooks/useDriverSettings';
-import { resolveVehicleImageUrl, DEFAULT_CAR_IMAGE } from '../../utils/documentUtils';
+import { resolveVehicleImageUrl, getVehicleCardSrcSet, DEFAULT_CAR_IMAGE } from '../../utils/documentUtils';
 
 export const CarDriverFleetGrid = ({ onSelectCar }) => {
   const { driverSettings } = useDriverSettings();
@@ -22,7 +22,8 @@ export const CarDriverFleetGrid = ({ onSelectCar }) => {
             const baseRate = v.pricing?.dailyRate || v.pricePerDay || 1499;
             const withDriverRate = v.pricing?.dailyRateWithFuel || (baseRate + driverFee);
             const rawImg = (v.images && v.images[0]) || v.image;
-            const image = resolveVehicleImageUrl(rawImg, DEFAULT_CAR_IMAGE);
+            const image = resolveVehicleImageUrl(rawImg, DEFAULT_CAR_IMAGE, { width: 900, height: 560, crop: 'fill', gravity: 'auto', quality: 'auto:best' });
+            const imageSrcSet = getVehicleCardSrcSet(rawImg, 800, 16 / 10);
 
             const stockCount = v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? (v.isAvailable !== false ? 1 : 0));
             const isAvail = v.isAvailable !== false && stockCount > 0 && v.availabilityStatus !== 'Currently Unavailable';
@@ -36,6 +37,7 @@ export const CarDriverFleetGrid = ({ onSelectCar }) => {
               price: `₹${withDriverRate.toLocaleString('en-IN')} / day`,
               priceNumeric: withDriverRate,
               image: image,
+              imageSrcSet: imageSrcSet,
               color: v.color || 'Executive Finish',
               badge: v.badge || (isAvail ? 'Verified Driver' : 'Reserved'),
               quantity: stockCount,
@@ -110,11 +112,20 @@ export const CarDriverFleetGrid = ({ onSelectCar }) => {
                 <div className="relative h-60 w-full overflow-hidden bg-slate-100">
                   <img
                     src={item.image}
+                    srcSet={item.imageSrcSet || undefined}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                     alt={item.name}
-                    className={`w-full h-full object-cover ${isUnavailable ? 'grayscale-[35%] opacity-85' : ''}`}
+                    className={`w-full h-full object-cover will-change-transform ${isUnavailable ? 'grayscale-[35%] opacity-85' : ''}`}
+                    style={{
+                      imageRendering: '-webkit-optimize-contrast',
+                      WebkitBackfaceVisibility: 'hidden',
+                      backfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)',
+                    }}
                     loading="lazy"
+                    decoding="async"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/25 via-transparent to-transparent pointer-events-none" />
                   
                   {/* Status & Type Pill */}
                   <div className="absolute top-3 left-3 flex items-center gap-2">

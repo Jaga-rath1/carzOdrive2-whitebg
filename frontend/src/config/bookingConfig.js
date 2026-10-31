@@ -11,6 +11,14 @@ export const BHUBANESWAR_LOCATIONS = [
   'Khandagiri',
   'Kalinga Nagar',
   'Jayadev Vatika',
+  'Biju Patnaik Airport (BBI)',
+  'Bhubaneswar Railway Station',
+  'Patia / KIIT Square',
+  'Jayadev Vihar',
+  'Saheed Nagar',
+  'Rasulgarh Square',
+  'Baramunda Bus Stand',
+  'Cuttack Link Road',
 ];
 
 export const SERVICE_OPTIONS = [

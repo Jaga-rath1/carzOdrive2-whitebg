@@ -145,6 +145,11 @@ const attachBookingDocument = asyncHandler(async (req, res) => {
   created(res, booking, 'KYC document attached to booking successfully');
 });
 
+const resendBookingEmails = asyncHandler(async (req, res) => {
+  const result = await svc.resendBookingEmails(req.params.id, req.body?.email);
+  success(res, result, 'Booking confirmation and invoice emails dispatched successfully');
+});
+
 module.exports = {
   getBookingInvoice,
   downloadBookingInvoicePdf,
@@ -167,5 +172,6 @@ module.exports = {
   returnInspection,
   verifyBookingDocuments,
   attachBookingDocument,
+  resendBookingEmails,
 };
 

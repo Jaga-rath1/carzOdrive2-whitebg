@@ -13,28 +13,27 @@ function resetTransporter() {
   transporter = null;
 }
 
-function getFormattedFrom(customFrom) {
+function getFormattedFrom(customLabel = 'CARZODRIVE Concierge') {
   const rawUser = process.env.SMTP_USER || process.env.EMAIL_USER || '';
   const user = rawUser.trim();
-  const rawFrom = (customFrom || process.env.EMAIL_FROM || '').replace(/^["']|["']$/g, '').trim();
+  const rawFrom = (process.env.EMAIL_FROM || '').replace(/^["']|["']$/g, '').trim();
+
+  let senderName = customLabel || 'CARZODRIVE Concierge';
+  let senderEmail = user || 'no-reply@carzodrive.com';
 
   if (rawFrom) {
     const match = rawFrom.match(/^(?:"?([^"<]+)"?\s*)?<([^>]+)>$/);
     if (match) {
-      const name = (match[1] || 'CARZODRIVE Concierge').trim();
-      const addr = match[2].trim();
-      return `"${name}" <${addr}>`;
-    }
-    if (rawFrom.includes('@')) {
-      return `"CARZODRIVE Concierge" <${rawFrom}>`;
+      if (!customLabel || customLabel === 'CARZODRIVE Concierge') {
+        senderName = (match[1] || senderName).trim();
+      }
+      senderEmail = match[2].trim();
+    } else if (rawFrom.includes('@')) {
+      senderEmail = rawFrom.trim();
     }
   }
 
-  if (user) {
-    return `"CARZODRIVE Concierge" <${user}>`;
-  }
-
-  return '"CARZODRIVE Concierge" <no-reply@carzodrive.com>';
+  return `"${senderName}" <${senderEmail}>`;
 }
 
 function getTransporter() {
@@ -241,8 +240,12 @@ function resolveBookingLedger(booking) {
  * Send official GST Tax Invoice & Travel Voucher email to Customer with PDF Attachment
  */
 async function sendBookingInvoiceToCustomer({ email, name = 'Valued Guest', booking, pdfBuffer = null }) {
-  if (!email || !email.includes('@') || email.includes('@offline.carzodrive.com')) {
-    return { success: false, reason: 'No valid customer email' };
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const isValidEmail = (em) => Boolean(em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) && !em.includes('@offline.carzodrive.com'));
+
+  if (!isValidEmail(cleanEmail)) {
+    logger.warn(`[Mailer] Aborting customer invoice email: '${email}' is not a valid deliverable email address.`);
+    return { success: false, reason: 'Invalid or offline customer email address' };
   }
 
   // Generate official PDF Tax Invoice attachment if not pre-generated
@@ -251,12 +254,13 @@ async function sendBookingInvoiceToCustomer({ email, name = 'Valued Guest', book
       const { generateInvoicePdfBuffer } = require('./pdfInvoiceGenerator');
       pdfBuffer = await generateInvoicePdfBuffer(booking);
     } catch (e) {
-      logger.warn('Could not generate PDF attachment for customer email:', e?.message);
+      logger.warn('[Mailer] Could not generate PDF attachment for customer email:', e?.message);
     }
   }
 
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const from = process.env.EMAIL_FROM || (user ? `CARZODRIVE Concierge <${user}>` : 'CARZODRIVE Concierge <no-reply@carzodrive.com>');
+  const from = getFormattedFrom('CARZODRIVE Concierge');
+  const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const replyTo = user || 'concierge@carzodrive.com';
   const bookingNumber = booking.bookingNumber || booking._id;
   const invoiceNumber = booking.invoiceNumber || `INV-${String(bookingNumber).replace(/^CZ-/, '')}`;
   const subject = `Tax Invoice & Booking Voucher: #${bookingNumber} (${invoiceNumber}) — CARZODRIVE`;
@@ -559,17 +563,19 @@ async function sendBookingInvoiceToCustomer({ email, name = 'Valued Guest', book
 
     const info = await client.sendMail({
       from,
-      to: email,
+      replyTo,
+      to: cleanEmail,
       subject,
       text: textContent,
       html: htmlContent,
       attachments,
     });
-    logger.success(`✓ Customer Tax Invoice dispatched to: ${email} [Ref: #${bookingNumber}, Attached: ${attachments.length > 0 ? 'YES' : 'NO'}, MessageId: ${info.messageId}]`);
-    return { success: true, messageId: info.messageId };
+    logger.success(`✓ Customer Tax Invoice dispatched successfully to: ${cleanEmail} [Ref: #${bookingNumber}, Attached: ${attachments.length > 0 ? 'YES' : 'NO'}, MessageId: ${info.messageId}]`);
+    return { success: true, messageId: info.messageId, email: cleanEmail };
   } catch (err) {
-    logger.error(`Failed to send customer invoice email to ${email}:`, err.message);
-    return { success: false, error: err.message };
+    logger.error(`Failed to send customer invoice email to ${cleanEmail}:`, err.message);
+    resetTransporter();
+    return { success: false, error: err.message, email: cleanEmail };
   }
 }
 
@@ -599,8 +605,9 @@ async function sendBookingAlertToAdmin({ booking, adminEmail, pdfBuffer = null }
     }
   }
 
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const from = process.env.EMAIL_FROM || (user ? `CARZODRIVE Dispatch <${user}>` : 'CARZODRIVE Dispatch <no-reply@carzodrive.com>');
+  const from = getFormattedFrom('CARZODRIVE Dispatch');
+  const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const replyTo = user || 'support@carzodrive.com';
   const bookingNumber = booking.bookingNumber || booking._id;
   const invoiceNumber = booking.invoiceNumber || `INV-${String(bookingNumber).replace(/^CZ-/, '')}`;
   const { total, paid, balance, isOffline } = resolveBookingLedger(booking);
@@ -837,40 +844,122 @@ async function sendBookingAlertToAdmin({ booking, adminEmail, pdfBuffer = null }
 
     const info = await client.sendMail({
       from,
+      replyTo,
       to: targetAdminEmail,
       subject,
       text: textContent,
       html: htmlContent,
       attachments,
     });
-    logger.success(`✓ Admin New Booking Alert dispatched to: ${targetAdminEmail} [Ref: #${bookingNumber}, Attached: ${attachments.length > 0 ? 'YES' : 'NO'}, MessageId: ${info.messageId}]`);
-    return { success: true, messageId: info.messageId };
+    logger.success(`✓ Admin New Booking Alert dispatched successfully to: ${targetAdminEmail} [Ref: #${bookingNumber}, Attached: ${attachments.length > 0 ? 'YES' : 'NO'}, MessageId: ${info.messageId}]`);
+    return { success: true, messageId: info.messageId, email: targetAdminEmail };
   } catch (err) {
     logger.error(`Failed to send Admin booking alert to ${targetAdminEmail}:`, err.message);
-    return { success: false, error: err.message };
+    resetTransporter();
+    return { success: false, error: err.message, email: targetAdminEmail };
   }
 }
 
 /**
- * Unified dispatch: sends Tax Invoice email to Customer AND Alert to Admin with PDF attachments
+ * Bulletproof resolver for Customer Email and Full Name
+ * Inspects all possible sources across booking documents, user model,
+ * payment linkages, and phone records. Filters out dummy/offline placeholder emails.
  */
-async function dispatchBookingEmails(booking, overrideCustomerEmail = null) {
-  if (!booking) return;
+async function resolveCustomerContact(booking, overrideEmail = null) {
+  let email = null;
+  let name = null;
 
-  let targetCustomerEmail = overrideCustomerEmail || booking.guestEmail || booking.customerId?.email || booking.email;
-  let customerName = booking.guestName || booking.customerId?.name || 'Valued Guest';
+  const isRealEmail = (val) => {
+    if (!val || typeof val !== 'string') return false;
+    const clean = val.trim().toLowerCase();
+    return clean.includes('@') &&
+      !clean.includes('@offline.carzodrive.com') &&
+      !clean.endsWith('@example.com') &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+  };
 
-  // If customerId is an ID without populated email, attempt lookup
-  if (!targetCustomerEmail && booking.customerId) {
+  // 1. Explicit override passed by caller
+  if (isRealEmail(overrideEmail)) {
+    email = overrideEmail.trim().toLowerCase();
+  }
+
+  // 2. Direct booking contact fields
+  if (!email && isRealEmail(booking?.guestEmail)) {
+    email = booking.guestEmail.trim().toLowerCase();
+  }
+  if (!email && isRealEmail(booking?.customerEmail)) {
+    email = booking.customerEmail.trim().toLowerCase();
+  }
+  if (!email && isRealEmail(booking?.email)) {
+    email = booking.email.trim().toLowerCase();
+  }
+
+  // 3. Populated or linked customerId
+  if (!email && booking?.customerId) {
+    if (isRealEmail(booking.customerId?.email)) {
+      email = booking.customerId.email.trim().toLowerCase();
+      if (!name && booking.customerId?.name) name = booking.customerId.name.trim();
+    } else {
+      // Unpopulated ObjectId - actively lookup in User model
+      try {
+        const { User } = require('../models/user.model');
+        const rawId = booking.customerId?._id || booking.customerId;
+        const u = await User.findById(rawId).select('name email phone');
+        if (u && isRealEmail(u.email)) {
+          email = u.email.trim().toLowerCase();
+          if (!name && u.name) name = u.name.trim();
+        }
+      } catch (err) {
+        logger.warn('[Mailer] Error finding User by customerId:', err?.message);
+      }
+    }
+  }
+
+  // 4. Linked Payment record
+  if (!email && booking?.paymentId) {
+    const payGuestEmail = booking.paymentId?.guestEmail || booking.paymentId?.customerEmail;
+    if (isRealEmail(payGuestEmail)) {
+      email = payGuestEmail.trim().toLowerCase();
+    }
+  }
+
+  // 5. Lookup by guestPhone in User collection (if guest didn't enter email but has registered account)
+  const rawPhone = booking?.guestPhone || booking?.customerPhone || booking?.phone;
+  if (!email && rawPhone) {
     try {
-      const { User } = require('../models/user.model');
-      const u = await User.findById(booking.customerId).select('name email phone');
-      if (u) {
-        targetCustomerEmail = u.email;
-        if (!booking.guestName && u.name) customerName = u.name;
+      const cleanDigits = String(rawPhone).replace(/[^0-9]/g, '');
+      if (cleanDigits.length >= 10) {
+        const tenDigits = cleanDigits.slice(-10);
+        const { User } = require('../models/user.model');
+        const u = await User.findOne({ phone: new RegExp(tenDigits + '$') }).select('name email phone');
+        if (u && isRealEmail(u.email)) {
+          email = u.email.trim().toLowerCase();
+          if (!name && u.name) name = u.name.trim();
+        }
       }
     } catch (_) {}
   }
+
+  // Resolve Customer Name
+  if (!name) {
+    name = booking?.guestName || booking?.customerName || booking?.name || booking?.customerId?.name || 'Valued Guest';
+  }
+
+  return { email, name };
+}
+
+/**
+ * Unified dispatch: sends Tax Invoice email to Customer AND Alert to Admin with PDF attachments
+ * Delivers sequentially with high resilience to guarantee both parties receive the confirmation.
+ */
+async function dispatchBookingEmails(booking, overrideCustomerEmail = null) {
+  if (!booking) return [];
+
+  const { email: targetCustomerEmail, name: customerName } = await resolveCustomerContact(booking, overrideCustomerEmail);
+  const bookingNumber = booking.bookingNumber || booking._id;
+  const adminEmail = resolveAdminAlertEmail();
+
+  logger.info(`[Mailer] Initiating booking #${bookingNumber} email dispatch: Customer = [${targetCustomerEmail || 'NONE'}], Admin = [${adminEmail}]`);
 
   // Pre-generate official PDF Tax Invoice attachment buffer (shared between customer & admin)
   let pdfBuffer = null;
@@ -878,40 +967,52 @@ async function dispatchBookingEmails(booking, overrideCustomerEmail = null) {
     const { generateInvoicePdfBuffer } = require('./pdfInvoiceGenerator');
     pdfBuffer = await generateInvoicePdfBuffer(booking);
   } catch (pdfErr) {
-    logger.warn('Could not pre-generate PDF invoice attachment:', pdfErr.message);
+    logger.warn('[Mailer] Could not pre-generate PDF invoice attachment:', pdfErr?.message);
   }
 
-  const promises = [];
+  const results = [];
 
-  // 1. Send Tax Invoice to Customer (with PDF attachment)
-  if (targetCustomerEmail && targetCustomerEmail.includes('@') && !targetCustomerEmail.includes('@offline.carzodrive.com')) {
-    promises.push(
-      sendBookingInvoiceToCustomer({
+  // 1. Send Tax Invoice to Customer (if valid email resolved)
+  if (targetCustomerEmail) {
+    try {
+      const custRes = await sendBookingInvoiceToCustomer({
         email: targetCustomerEmail,
         name: customerName,
         booking,
         pdfBuffer,
-      }).catch((e) => {
-        logger.error(`Error in sendBookingInvoiceToCustomer: ${e?.message}`);
-        return { success: false, error: e?.message };
-      })
-    );
+      });
+      results.push(custRes);
+      if (custRes.success) {
+        logger.success(`✓ Customer Tax Invoice email delivered to: ${targetCustomerEmail} (Ref: #${bookingNumber})`);
+      } else {
+        logger.warn(`⚠ Customer Tax Invoice could not be delivered to: ${targetCustomerEmail}: ${custRes.error || custRes.reason}`);
+      }
+    } catch (e) {
+      logger.error(`[Mailer] Exception in sendBookingInvoiceToCustomer (${targetCustomerEmail}):`, e?.message);
+      results.push({ success: false, error: e?.message, email: targetCustomerEmail });
+    }
+  } else {
+    logger.warn(`[Mailer] ⚠️ Skipping customer email: No deliverable customer email found for booking #${bookingNumber}. (Alert will still be sent to Admin)`);
+    results.push({ success: false, reason: 'No customer email resolved' });
   }
 
-  // 2. Always send Alert to Admin (with PDF attachment)
-  const adminEmail = resolveAdminAlertEmail();
-  promises.push(
-    sendBookingAlertToAdmin({
+  // 2. Always send Alert to Admin
+  try {
+    const adminRes = await sendBookingAlertToAdmin({
       booking,
       adminEmail,
       pdfBuffer,
-    }).catch((e) => {
-      logger.error(`Error in sendBookingAlertToAdmin: ${e?.message}`);
-      return { success: false, error: e?.message };
-    })
-  );
+    });
+    results.push(adminRes);
+    if (adminRes.success) {
+      logger.success(`✓ Admin alert delivered to: ${adminEmail} (Ref: #${bookingNumber})`);
+    }
+  } catch (e) {
+    logger.error(`[Mailer] Exception in sendBookingAlertToAdmin (${adminEmail}):`, e?.message);
+    results.push({ success: false, error: e?.message, email: adminEmail });
+  }
 
-  return Promise.allSettled(promises);
+  return results;
 }
 
 module.exports = {
@@ -920,6 +1021,7 @@ module.exports = {
   sendBookingInvoiceToCustomer,
   sendBookingAlertToAdmin,
   dispatchBookingEmails,
+  resolveCustomerContact,
   verifyMailer,
   getTransporter,
 };

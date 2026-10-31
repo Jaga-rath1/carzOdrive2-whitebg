@@ -6,7 +6,7 @@ import { Container } from '../common/Container';
 import { WhatsAppButton } from '../common/WhatsAppButton';
 import { getVehicleWhatsAppMessage } from '../../utils/whatsapp';
 import { vehiclesAPI } from '../../services/api';
-import { resolveVehicleImageUrl } from '../../utils/documentUtils';
+import { resolveVehicleImageUrl, getVehicleCardSrcSet, DEFAULT_CAR_IMAGE, DEFAULT_FLEET_CARS } from '../../utils/documentUtils';
 import { CarRideCard } from './CarRideCard';
 
 export const CarRideGrid = ({ onOpenQuickBook, onOpenSpecs }) => {
@@ -17,60 +17,71 @@ export const CarRideGrid = ({ onOpenQuickBook, onOpenSpecs }) => {
 
   useEffect(() => {
     let isMounted = true;
+    const mapCars = (list) => {
+      return list.map((v) => {
+        const price = v.pricing?.dailyRate || v.pricePerDay || v.priceNumeric || 1499;
+        const rawImage = (v.images && v.images[0]) || v.image;
+        const image = resolveVehicleImageUrl(rawImage, DEFAULT_CAR_IMAGE, { width: 900, height: 560, crop: 'fill', gravity: 'auto', quality: 'auto:best' });
+        const imageSrcSet = getVehicleCardSrcSet(rawImage, 800, 16 / 10);
+
+        return {
+          id: v.slug || v._id || v.id,
+          rawId: v._id || v.id,
+          vehicleId: v._id || v.id,
+          name: v.name,
+          category:
+            (v.category || '').toLowerCase() === 'suv'
+              ? 'SUV'
+              : (v.category || '').toLowerCase() === 'sedan'
+              ? 'Sedan'
+              : (v.category || '').toLowerCase() === 'luxury'
+              ? 'Luxury'
+              : 'Hatchback',
+          seats: v.specs?.seats || v.seatsCount || v.seats || 5,
+          fuel: v.specs?.fuelType || (v.fuelType ? v.fuelType.toUpperCase() : (v.fuel ? v.fuel.toUpperCase() : 'PETROL')),
+          transmission: v.specs?.transmission || (v.transmission ? v.transmission.toUpperCase() : 'MANUAL'),
+          pricePerDay: price,
+          priceDisplay: `₹${price.toLocaleString('en-IN')}`,
+          popularity: v.isAvailable !== false ? 100 : 70,
+          isLuxury: (v.category || '').toLowerCase() === 'luxury',
+          image: image,
+          imageSrcSet: imageSrcSet,
+          badge: v.badge || (v.isAvailable !== false ? 'Live in Hub' : 'Reserved'),
+          quantity: v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0)),
+          availableCount: v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0)),
+          isAvailable: v.isAvailable !== false && (v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? 1)) > 0 && v.availabilityStatus !== 'UNAVAILABLE' && v.availabilityStatus !== 'Currently Unavailable',
+          availabilityStatus: (v.isAvailable !== false && (v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? 1)) > 0 && v.availabilityStatus !== 'UNAVAILABLE' && v.availabilityStatus !== 'Currently Unavailable') ? 'Available' : 'Currently Unavailable',
+          color: v.color || v.specs?.color || 'Standard',
+          year: v.year || 2024,
+          rawVehicle: v,
+          vehicleType: 'car',
+        };
+      });
+    };
+
     vehiclesAPI
       .getAll()
       .then((res) => {
-        if (isMounted && res?.data && res.data.length > 0) {
-          const mapped = res.data.map((v) => {
-            const price = v.pricing?.dailyRate || v.pricePerDay || v.priceNumeric || 1499;
-            const rawImage = (v.images && v.images[0]) || v.image;
-            const image = resolveVehicleImageUrl(rawImage);
+        if (!isMounted) return;
+        const rawList = (res?.data && Array.isArray(res.data) && res.data.length > 0)
+          ? res.data
+          : DEFAULT_FLEET_CARS;
 
-            return {
-              id: v.slug || v._id || v.id,
-              rawId: v._id || v.id,
-              vehicleId: v._id || v.id,
-              name: v.name,
-              category:
-                (v.category || '').toLowerCase() === 'suv'
-                  ? 'SUV'
-                  : (v.category || '').toLowerCase() === 'sedan'
-                  ? 'Sedan'
-                  : (v.category || '').toLowerCase() === 'luxury'
-                  ? 'Luxury'
-                  : 'Hatchback',
-              seats: v.specs?.seats || v.seats || 5,
-              fuel: v.specs?.fuelType || (v.fuelType ? v.fuelType.toUpperCase() : 'PETROL'),
-              transmission: v.specs?.transmission || (v.transmission ? v.transmission.toUpperCase() : 'MANUAL'),
-              pricePerDay: price,
-              priceDisplay: `₹${price.toLocaleString('en-IN')}`,
-              popularity: v.isAvailable !== false ? 100 : 70,
-              isLuxury: (v.category || '').toLowerCase() === 'luxury',
-              image: image,
-              badge: v.badge || (v.isAvailable !== false ? 'Live in Hub' : 'Reserved'),
-              quantity: v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0)),
-              availableCount: v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0)),
-              isAvailable: v.isAvailable !== false && (v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? 1)) > 0 && v.availabilityStatus !== 'UNAVAILABLE' && v.availabilityStatus !== 'Currently Unavailable',
-              availabilityStatus: (v.isAvailable !== false && (v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? 1)) > 0 && v.availabilityStatus !== 'UNAVAILABLE' && v.availabilityStatus !== 'Currently Unavailable') ? 'Available' : 'Currently Unavailable',
-              color: v.color || v.specs?.color || 'Standard',
-              year: v.year || 2024,
-              rawVehicle: v,
-              vehicleType: 'car',
-            };
-          });
-          const sorted = mapped.sort((a, b) => {
-            if (a.isAvailable === b.isAvailable) return 0;
-            return a.isAvailable ? -1 : 1;
-          });
-          setFleetCars(sorted);
-          setLoading(false);
-        } else {
-          setLoading(false);
-        }
+        const mapped = mapCars(rawList);
+        const sorted = mapped.sort((a, b) => {
+          if (a.isAvailable === b.isAvailable) return 0;
+          return a.isAvailable ? -1 : 1;
+        });
+        setFleetCars(sorted);
+        setLoading(false);
       })
       .catch((err) => {
         console.error('Failed to load cars from DB:', err);
-        setLoading(false);
+        if (isMounted) {
+          const mapped = mapCars(DEFAULT_FLEET_CARS);
+          setFleetCars(mapped);
+          setLoading(false);
+        }
       });
     return () => {
       isMounted = false;

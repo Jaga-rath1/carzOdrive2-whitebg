@@ -6,6 +6,7 @@ import { Container } from '../common/Container';
 import { WhatsAppButton } from '../common/WhatsAppButton';
 import { getVehicleWhatsAppMessage } from '../../utils/whatsapp';
 import { bikesAPI } from '../../services/api';
+import { resolveVehicleImageUrl, getVehicleCardSrcSet, DEFAULT_BIKE_IMAGE } from '../../utils/documentUtils';
 import { BikeRideCard } from './BikeRideCard';
 
 const FALLBACK_BIKES = [
@@ -67,7 +68,9 @@ export const BikeRideGrid = ({ onOpenQuickBook }) => {
           const mapped = res.data.map((b) => {
             const price = b.pricing?.dailyRate || b.pricePerDay || b.priceNumeric || 499;
             const deposit = b.pricing?.securityDeposit || b.depositNumeric || 1200;
-            const image = (b.images && b.images[0]) || b.image || 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1200&auto=format&fit=crop';
+            const rawImg = (b.images && b.images[0]) || b.image;
+            const image = resolveVehicleImageUrl(rawImg, DEFAULT_BIKE_IMAGE, { width: 900, height: 560, crop: 'fill', gravity: 'auto', quality: 'auto:best' });
+            const imageSrcSet = getVehicleCardSrcSet(rawImg, 800, 16 / 10);
 
             return {
               id: b.slug || b._id || b.id,
@@ -98,6 +101,7 @@ export const BikeRideGrid = ({ onOpenQuickBook }) => {
               deposit: `₹${deposit.toLocaleString('en-IN')}`,
               depositNumeric: deposit,
               image: image,
+              imageSrcSet: imageSrcSet,
               badge: b.badge || (b.isAvailable !== false ? 'Live in Hub' : 'Reserved'),
               quantity: b.quantity !== undefined ? Number(b.quantity) : (b.availableCount ?? b.count ?? (b.isAvailable !== false ? 1 : 0)),
               availableCount: b.quantity !== undefined ? Number(b.quantity) : (b.availableCount ?? b.count ?? (b.isAvailable !== false ? 1 : 0)),

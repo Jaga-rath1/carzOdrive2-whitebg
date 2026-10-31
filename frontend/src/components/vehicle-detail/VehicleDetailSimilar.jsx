@@ -5,7 +5,7 @@ import { WhatsAppButton } from '../common/WhatsAppButton';
 import { getVehicleWhatsAppMessage } from '../../utils/whatsapp';
 import { vehiclesAPI, bikesAPI } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import { DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE } from '../../utils/documentUtils';
+import { DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE, resolveVehicleImageUrl, getVehicleCardSrcSet } from '../../utils/documentUtils';
 
 export const VehicleDetailSimilar = ({ currentVehicle, onOpenQuickBook }) => {
   const { isAuthenticated, openAuthModal } = useAuth();
@@ -24,7 +24,10 @@ export const VehicleDetailSimilar = ({ currentVehicle, onOpenQuickBook }) => {
             .slice(0, 3)
             .map((v) => {
               const price = v.pricing?.dailyRate || v.pricePerDay || (isBike ? 499 : 1499);
-              const image = (v.images && v.images[0]) || v.image || (isBike ? DEFAULT_BIKE_IMAGE : DEFAULT_CAR_IMAGE);
+              const fallbackImg = isBike ? DEFAULT_BIKE_IMAGE : DEFAULT_CAR_IMAGE;
+              const rawImg = (v.images && v.images[0]) || v.image;
+              const image = resolveVehicleImageUrl(rawImg, fallbackImg, { width: 900, height: 560, crop: 'fill', gravity: 'auto', quality: 'auto:best' });
+              const imageSrcSet = getVehicleCardSrcSet(rawImg, 800, 16 / 10);
               const count = v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0));
               const isAvail = v.isAvailable !== false && count > 0 && v.availabilityStatus !== 'UNAVAILABLE' && v.availabilityStatus !== 'Currently Unavailable';
 
@@ -38,6 +41,7 @@ export const VehicleDetailSimilar = ({ currentVehicle, onOpenQuickBook }) => {
                 vehicleType: isBike ? 'bike' : 'car',
                 color: v.color || 'Standard',
                 image,
+                imageSrcSet,
                 pricePerDay: price,
                 priceDisplay: `₹${price.toLocaleString('en-IN')}`,
                 badge: v.badge || (isAvail ? 'Verified' : 'Reserved'),
@@ -92,11 +96,15 @@ export const VehicleDetailSimilar = ({ currentVehicle, onOpenQuickBook }) => {
             <div className="relative h-48 w-full overflow-hidden bg-slate-100">
               <img
                 src={item.image}
+                srcSet={item.imageSrcSet || undefined}
+                sizes="(max-width: 768px) 100vw, 33vw"
                 alt={item.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 loading="lazy"
+                decoding="async"
+                style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 via-transparent to-transparent pointer-events-none" />
 
               <div className="absolute top-3 left-3">
                 <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md border border-slate-200/90 text-slate-900 shadow-xs">

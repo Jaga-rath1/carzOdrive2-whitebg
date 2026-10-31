@@ -2,8 +2,10 @@ import React, { useEffect } from 'react';
 import { MapPin, Calendar } from 'lucide-react';
 import { BHUBANESWAR_LOCATIONS } from '../../config/bookingConfig';
 import { formatCurrency, getTodayDateString } from '../../utils/formatters';
+import { SearchableLocationInput } from '../common/SearchableLocationInput';
 
 export const BookingLocationDatesSection = ({
+  selectedService = 'self-drive-car',
   pickupLocation,
   setPickupLocation,
   dropoffLocation,
@@ -25,45 +27,78 @@ export const BookingLocationDatesSection = ({
       setReturnDate(pickupDate);
     }
   }, [pickupDate, returnDate, setPickupDate, setReturnDate]);
+
+  const isDriverService = selectedService === 'car-with-driver' || selectedService === 'driver-only';
+
   return (
     <div className="space-y-3">
-      {/* 1. Hub Location Dropdowns */}
+      {/* 1. Hub Location Inputs (Allows Manual Typing + Suggestions for Car with Driver) */}
       <div className="space-y-3">
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-blue-600" />
-            Pick-up / Delivery Location
-          </label>
-          <select
-            value={pickupLocation}
-            onChange={(e) => setPickupLocation(e.target.value)}
-            className="w-full bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            {BHUBANESWAR_LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                📍 {loc}
-              </option>
-            ))}
-          </select>
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all space-y-1.5">
+          {isDriverService ? (
+            <SearchableLocationInput
+              id="modal-pickup-location"
+              label="Pick-up / Delivery Address"
+              value={pickupLocation}
+              onChange={setPickupLocation}
+              options={BHUBANESWAR_LOCATIONS}
+              placeholder="Type doorstep address or choose landmark..."
+              allowCustom={true}
+            />
+          ) : (
+            <>
+              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                Pick-up / Delivery Location
+              </label>
+              <select
+                value={pickupLocation}
+                onChange={(e) => setPickupLocation(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+              >
+                {BHUBANESWAR_LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc}>
+                    📍 {loc}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-blue-600" />
-            Drop-off / Return Location
-          </label>
-          <select
-            value={dropoffLocation}
-            onChange={(e) => setDropoffLocation(e.target.value)}
-            className="w-full bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
-          >
-            <option value="Same as Pick-up Address">🔄 Same as Pick-up Address</option>
-            {BHUBANESWAR_LOCATIONS.map((loc) => (
-              <option key={loc} value={loc}>
-                📍 {loc}
-              </option>
-            ))}
-          </select>
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all space-y-1.5">
+          {isDriverService ? (
+            <SearchableLocationInput
+              id="modal-dropoff-location"
+              label="Drop-off / Destination Address"
+              value={dropoffLocation}
+              onChange={setDropoffLocation}
+              options={BHUBANESWAR_LOCATIONS}
+              placeholder="Type destination, hotel, or choose landmark..."
+              allowCustom={true}
+              includeSameAsPickup={true}
+              pickupLocationValue={pickupLocation}
+            />
+          ) : (
+            <>
+              <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                Drop-off / Return Location
+              </label>
+              <select
+                value={dropoffLocation}
+                onChange={(e) => setDropoffLocation(e.target.value)}
+                className="w-full bg-white border border-slate-200 text-xs sm:text-sm font-semibold text-slate-900 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 cursor-pointer shadow-sm"
+              >
+                <option value="Same as Pick-up Address">🔄 Same as Pick-up Address</option>
+                {BHUBANESWAR_LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc}>
+                    📍 {loc}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
       </div>
 

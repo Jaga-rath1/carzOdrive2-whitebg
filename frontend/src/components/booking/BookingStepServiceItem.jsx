@@ -109,6 +109,7 @@ export const BookingStepServiceItem = ({
 
       {/* 3. HUBS & DATES SELECTION (MODULAR) */}
       <BookingLocationDatesSection
+        selectedService={selectedService}
         pickupLocation={pickupLocation}
         setPickupLocation={setPickupLocation}
         dropoffLocation={dropoffLocation}

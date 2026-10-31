@@ -152,6 +152,20 @@ async function handleWebhook(rawBody, signature) {
       booking.paymentStatus = 'PAID';
       if (booking.status === 'PENDING') booking.status = 'CONFIRMED';
       await booking.save();
+
+      try {
+        const bookingsSvc = require('./bookings.service');
+        const populated = await Booking.findById(booking._id)
+          .populate('customerId', 'name email phone')
+          .populate('vehicleId')
+          .populate('bikeId')
+          .populate('driverId')
+          .populate('packageId')
+          .populate('paymentId');
+        bookingsSvc.dispatchBookingNotificationsSafely(populated || booking, payment.guestEmail || payment.customerEmail);
+      } catch (notifyErr) {
+        console.error('Webhook notification dispatch notice:', notifyErr?.message);
+      }
     }
   } else if (eventType === 'PAYMENT_FAILED_WEBHOOK' || eventType === 'PAYMENT_FAILED') {
     payment.status = 'FAILED';
@@ -189,6 +203,20 @@ async function verifyPayment(cashfreeOrderId, customerId) {
       booking.paymentStatus = 'PAID';
       if (booking.status === 'PENDING') booking.status = 'CONFIRMED';
       await booking.save();
+
+      try {
+        const bookingsSvc = require('./bookings.service');
+        const populated = await Booking.findById(booking._id)
+          .populate('customerId', 'name email phone')
+          .populate('vehicleId')
+          .populate('bikeId')
+          .populate('driverId')
+          .populate('packageId')
+          .populate('paymentId');
+        bookingsSvc.dispatchBookingNotificationsSafely(populated || booking, payment.guestEmail || payment.customerEmail);
+      } catch (notifyErr) {
+        console.error('Verify payment notification dispatch notice:', notifyErr?.message);
+      }
     }
   }
 
@@ -296,7 +324,7 @@ async function processCheckout(data, customerId = null) {
   // If this was an existing booking completing payment, dispatch updated invoice & admin notification
   if (isExistingBooking) {
     try {
-      const { dispatchBookingEmails } = require('../utils/mailer');
+      const bookingsSvc = require('./bookings.service');
       const populated = await Booking.findById(booking._id)
         .populate('customerId', 'name email phone')
         .populate('vehicleId')
@@ -304,9 +332,7 @@ async function processCheckout(data, customerId = null) {
         .populate('driverId')
         .populate('packageId')
         .populate('paymentId');
-      dispatchBookingEmails(populated || booking, data.guestEmail).catch((e) =>
-        console.error('Error dispatching checkout payment update emails:', e?.message)
-      );
+      bookingsSvc.dispatchBookingNotificationsSafely(populated || booking, data.guestEmail || data.customerEmail);
     } catch (e) {
       console.error('Failed to trigger email dispatch in processCheckout:', e?.message);
     }

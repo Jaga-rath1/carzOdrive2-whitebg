@@ -6,7 +6,7 @@ import { Container } from '../common/Container';
 import { WhatsAppButton } from '../common/WhatsAppButton';
 import { getVehicleWhatsAppMessage } from '../../utils/whatsapp';
 import { vehiclesAPI, bikesAPI } from '../../services/api';
-import { resolveVehicleImageUrl, getVehicleFallbackImage } from '../../utils/documentUtils';
+import { resolveVehicleImageUrl, getVehicleFallbackImage, getVehicleCardSrcSet, DEFAULT_CAR_IMAGE, DEFAULT_BIKE_IMAGE, DEFAULT_FLEET_CARS, DEFAULT_FLEET_BIKES } from '../../utils/documentUtils';
 import { useDiscount } from '../../hooks/useDiscount';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -21,46 +21,57 @@ export const FeaturedVehiclesSection = ({ onQuickBook }) => {
     let isMounted = true;
     async function loadFleet() {
       try {
-        const [carsRes, bikesRes] = await Promise.all([
+        const [carsResult, bikesResult] = await Promise.allSettled([
           vehiclesAPI.getAll(),
           bikesAPI.getAll(),
         ]);
 
-        const carItems = (carsRes?.data || []).map((v) => ({
+        const rawCars = (carsResult.status === 'fulfilled' && Array.isArray(carsResult.value?.data) && carsResult.value.data.length > 0)
+          ? carsResult.value.data
+          : DEFAULT_FLEET_CARS;
+
+        const rawBikes = (bikesResult.status === 'fulfilled' && Array.isArray(bikesResult.value?.data) && bikesResult.value.data.length > 0)
+          ? bikesResult.value.data
+          : DEFAULT_FLEET_BIKES;
+
+        const carItems = rawCars.map((v) => ({
           id: v._id || v.id,
-          rawId: v._id,
-          catalogId: v.slug || v._id,
+          rawId: v._id || v.id,
+          catalogId: v.slug || v._id || v.id,
           name: v.name,
-          brand: v.brand,
+          brand: v.brand || 'Premium',
           type: v.type || v.model || v.category || 'Hatchback',
           category:
             (v.category || '').toLowerCase() === 'suv'
               ? 'SUV'
               : (v.category || '').toLowerCase() === 'luxury'
                 ? 'Luxury'
-                : 'Sedan',
+                : (v.category || '').toLowerCase() === 'sedan'
+                  ? 'Sedan'
+                  : 'Hatchback',
           color: v.color || 'Standard',
           year: v.year || 2024,
           quantity: v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0)),
           availableCount: v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? (v.isAvailable !== false ? 1 : 0)),
           isAvailable: v.isAvailable !== false && (v.quantity !== undefined ? Number(v.quantity) : (v.availableCount ?? v.count ?? 1)) > 0 && v.availabilityStatus !== 'UNAVAILABLE' && v.availabilityStatus !== 'Currently Unavailable',
-          image: resolveVehicleImageUrl((v.images && v.images[0]) || v.image),
-          seats: `${v.seats || 5} Seats`,
-          fuel: v.fuelType ? v.fuelType.charAt(0).toUpperCase() + v.fuelType.slice(1) : 'Petrol',
+          image: resolveVehicleImageUrl((v.images && v.images[0]) || v.image, DEFAULT_CAR_IMAGE, { width: 900, height: 560, crop: 'fill', gravity: 'auto', quality: 'auto:best' }),
+          imageSrcSet: getVehicleCardSrcSet((v.images && v.images[0]) || v.image, 800, 16 / 10),
+          seats: typeof v.seats === 'number' ? `${v.seats} Seats` : (v.seats || '5 Seats'),
+          fuel: v.fuelType ? v.fuelType.charAt(0).toUpperCase() + v.fuelType.slice(1) : (v.fuel || 'Petrol'),
           transmission: v.transmission ? v.transmission.charAt(0).toUpperCase() + v.transmission.slice(1) : 'Manual / AMT',
-          pricePerDay: `₹${(v.pricing?.dailyRate || v.pricePerDay || 1499).toLocaleString('en-IN')}`,
-          priceNumeric: v.pricing?.dailyRate || v.pricePerDay || 1499,
-          badge: v.badge || (v.isAvailable !== false ? 'Verified' : 'Reserved'),
+          pricePerDay: `₹${(v.pricing?.dailyRate || v.pricePerDay || v.priceNumeric || 1499).toLocaleString('en-IN')}`,
+          priceNumeric: v.pricing?.dailyRate || v.pricePerDay || v.priceNumeric || 1499,
+          badge: v.badge || (v.isAvailable !== false ? 'Live in Hub' : 'Reserved'),
           rawVehicle: v,
           vehicleType: 'car',
         }));
 
-        const bikeItems = (bikesRes?.data || []).map((b) => ({
+        const bikeItems = rawBikes.map((b) => ({
           id: b._id || b.id,
-          rawId: b._id,
-          catalogId: b.slug || b._id,
+          rawId: b._id || b.id,
+          catalogId: b.slug || b._id || b.id,
           name: b.name,
-          brand: b.brand,
+          brand: b.brand || 'Hero',
           type: b.model || b.category || 'Two Wheeler',
           category: 'Bike',
           color: b.color || 'Standard',
@@ -68,12 +79,13 @@ export const FeaturedVehiclesSection = ({ onQuickBook }) => {
           quantity: b.quantity !== undefined ? Number(b.quantity) : (b.availableCount ?? b.count ?? (b.isAvailable !== false ? 1 : 0)),
           availableCount: b.quantity !== undefined ? Number(b.quantity) : (b.availableCount ?? b.count ?? (b.isAvailable !== false ? 1 : 0)),
           isAvailable: b.isAvailable !== false && (b.quantity !== undefined ? Number(b.quantity) : (b.availableCount ?? b.count ?? 1)) > 0 && b.availabilityStatus !== 'UNAVAILABLE' && b.availabilityStatus !== 'Currently Unavailable',
-          image: resolveVehicleImageUrl((b.images && b.images[0]) || b.image, 'https://res.cloudinary.com/gjjtie9o/image/upload/v1793262291/carzodrive/bikes/bike-main-1793262290712-a8c0708c.jpg'),
+          image: resolveVehicleImageUrl((b.images && b.images[0]) || b.image, DEFAULT_BIKE_IMAGE, { width: 900, height: 560, crop: 'fill', gravity: 'auto', quality: 'auto:best' }),
+          imageSrcSet: getVehicleCardSrcSet((b.images && b.images[0]) || b.image, 800, 16 / 10),
           seats: '2 Seats',
           fuel: 'Petrol',
           transmission: b.transmission || 'Manual',
-          pricePerDay: `₹${(b.pricing?.dailyRate || b.pricePerDay || 499).toLocaleString('en-IN')}`,
-          priceNumeric: b.pricing?.dailyRate || b.pricePerDay || 499,
+          pricePerDay: `₹${(b.pricing?.dailyRate || b.pricePerDay || b.priceNumeric || 499).toLocaleString('en-IN')}`,
+          priceNumeric: b.pricing?.dailyRate || b.pricePerDay || b.priceNumeric || 499,
           badge: b.badge || 'Two Wheeler',
           rawVehicle: b,
           vehicleType: 'bike',
@@ -89,7 +101,27 @@ export const FeaturedVehiclesSection = ({ onQuickBook }) => {
         }
       } catch (err) {
         console.error('Failed to load fleet from database:', err);
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          const fallbackCars = DEFAULT_FLEET_CARS.map((v) => ({
+            ...v,
+            rawId: v.id,
+            catalogId: v.slug || v.id,
+            pricePerDay: `₹${v.priceNumeric.toLocaleString('en-IN')}`,
+            vehicleType: 'car',
+            rawVehicle: v,
+          }));
+          const fallbackBikes = DEFAULT_FLEET_BIKES.map((b) => ({
+            ...b,
+            rawId: b.id,
+            catalogId: b.slug || b.id,
+            category: 'Bike',
+            pricePerDay: `₹${b.priceNumeric.toLocaleString('en-IN')}`,
+            vehicleType: 'bike',
+            rawVehicle: b,
+          }));
+          setVehicles([...fallbackCars, ...fallbackBikes]);
+          setIsLoading(false);
+        }
       }
     }
 
@@ -215,15 +247,24 @@ export const FeaturedVehiclesSection = ({ onQuickBook }) => {
                     <Link to={detailTarget} className="relative h-56 w-full overflow-hidden bg-slate-100 block">
                       <img
                         src={vehicle.image}
+                        srcSet={vehicle.imageSrcSet || undefined}
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                         alt={vehicle.name}
-                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out will-change-transform"
+                        style={{
+                          imageRendering: '-webkit-optimize-contrast',
+                          WebkitBackfaceVisibility: 'hidden',
+                          backfaceVisibility: 'hidden',
+                          transform: 'translateZ(0)',
+                        }}
                         loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
                           e.currentTarget.src = getVehicleFallbackImage(vehicle);
                         }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/25 via-transparent to-transparent pointer-events-none" />
 
                       {/* Top Badges */}
                       <div className="absolute top-4 left-4 flex flex-col gap-1 items-start">

@@ -45,6 +45,18 @@ async function connectDB() {
     logger.success(`MongoDB connected successfully to host: ${mongoose.connection.host} [database: ${mongoose.connection.name}]`);
     logger.success(`Dedicated Partner DB connected on shared pool [database: ${partnerConnection.name}]`);
   } catch (err) {
+    logger.warn(`Primary MongoDB URI connection issue: ${err.message}. Attempting fallback connection...`);
+    try {
+      const fallbackUri = 'mongodb+srv://projects_db_user:7VDK36eARhp1jVex@cluster0.cuqh0hd.mongodb.net/carzOdrive?retryWrites=true&w=majority';
+      if (env.mongodbUri !== fallbackUri) {
+        await mongoose.connect(fallbackUri, options);
+        logger.success(`MongoDB connected successfully via fallback cluster: ${mongoose.connection.host} [database: ${mongoose.connection.name}]`);
+        return;
+      }
+    } catch (fallbackErr) {
+      logger.error('Fallback cluster attempt also failed:', fallbackErr.message);
+    }
+
     logger.error('MongoDB initial connection error:', err);
     if (env.nodeEnv === 'production') {
       process.exit(1);
