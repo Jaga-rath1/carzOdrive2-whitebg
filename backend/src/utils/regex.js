@@ -14,3 +14,4 @@ function buildSafeRegex(value, maxLength = 100) {
 }
 
 module.exports = { escapeRegex, buildSafeRegex };
+
